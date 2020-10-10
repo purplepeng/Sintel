@@ -1,13 +1,11 @@
 const Handlebars = require('handlebars')
 const fs = require('fs')
-const { indexObj } = require('../preprocess')
-const { logger } = require('handlebars')
+const path = require('path')
 
 // model helper
-Handlebars.registerHelper('printModel', function(context, options) {
-  debugger
+Handlebars.registerHelper('printModel', function() {  
   let result = `## Models\n`
-  const keys = Object.keys(this)
+  const keys = Object.keys(this)  
   keys.forEach(key => {    
     const value = this[key]        
     result += `\n##### ${key}`
@@ -15,7 +13,7 @@ Handlebars.registerHelper('printModel', function(context, options) {
       const desc = value.description
       result += desc ? ` - ${desc}\n\n` : '\n\n'
       const subKeys = Object.keys(value.properties)
-      result += '| Params | Type | Description|\n'
+      result += '| Params | Type | Description |\n'
       result += '| --- | --- | ---|\n'
       subKeys.forEach(subKey => {
         const subValue = value.properties[subKey]        
@@ -25,7 +23,8 @@ Handlebars.registerHelper('printModel', function(context, options) {
           const refKey = subValue['$ref'].replace('#/definitions/', '')
           const refItem = this[refKey]                    
           subValueType = refKey
-          subValueDesc = refItem.description
+          // TODO:  引用的该文件外的model对象，目前没有显示出描述
+          subValueDesc = refItem ? refItem.description : '-'
         } else {          
           if (subValue.type === 'array' && subValue.items) {
             const subValueItem = subValue.items            
@@ -45,7 +44,7 @@ Handlebars.registerHelper('printModel', function(context, options) {
       })
     }
   })
-  return result
+  return new Handlebars.SafeString(result)
 })
 
 // api helper
@@ -61,7 +60,7 @@ Handlebars.registerHelper('printAPI', function() {
       result += '请求参数：\n'      
       const reqParams = subValue.parameters      
       if (reqParams && reqParams.length) {
-        result += '\n| Params | Type | Required | Description|\n'
+        result += '\n| Params | Type | Required | Description |\n'
         result += '| --- | --- | --- | --- |\n'
         reqParams.forEach(param => {          
           const { name, type, required, description } = param
@@ -122,71 +121,72 @@ Handlebars.registerHelper('printAPI', function() {
       result += '___\n'
     })
   })
-  return result
+  return new Handlebars.SafeString(result)
 })
 
-const generate = (templateStr, input) => {  
-  // const obj = JSON.parse(file)
-  // const id = obj['$id']
-  // if (!indexObj[id]) {
-  //   indexObj[id] = obj
-  // }    
+const generate = (templateStr, input) => {
   const template = Handlebars.compile(templateStr)      
-  console.log(input);  
-  let result = template(input)
-  result = result.replace(/&amp;/g,"&");
-  result = result.replace(/&lt;/g,"<");
-  result = result.replace(/&gt;/g,">");
-  result = result.replace(/&nbsp;/g," ");
-  result = result.replace(/&quot/g,"'");
-  result = result.replace(/&#x60;/g,"`");
-  return result
+  // console.log(input);  
+  return template(input)
 }
 
-const write = (mergedObj, fileName, fileType) => {  
-  try {
-    if (fileType === 'json') {
-      // console.log(mergedObj);
-      const data = fs.writeFileSync(fileName, JSON.stringify(mergedObj), 'utf-8')
-    } else if (fileType === 'md') {
+const write = (mergedObj, folderPath, templateType) => {  
+  try {    
+    if (['markdown', 'Markdown', 'md', 'MD'].indexOf(templateType) !== -1) {      
       const modelTemplateStr = `{{#with definitions}}{{printModel}}{{/with}}`
       const modelResult = generate(modelTemplateStr, mergedObj)
       const apiTemplateStr = `{{#with paths}}{{printAPI}}{{/with}}`
       const apiResult = generate(apiTemplateStr, mergedObj)
-      const modelData = fs.writeFileSync(fileName, modelResult, 'utf-8')
-      const apiData = fs.appendFileSync(fileName, apiResult, 'utf-8')            
-    }    
+      
+      const fileName = path.join(folderPath, 'index.md')   
+      fs.writeFileSync(fileName, modelResult, 'utf-8')
+      fs.appendFileSync(fileName, apiResult, 'utf-8') 
+    } else  if (['TypeScript', 'typescript', 'ts', 'TS']) {
+       // TODO:
+    }       
   } catch (error) {
     console.error(error)
   }
 }
 
-Handlebars.registerHelper("with", function(context, options) {
-  debugger
-  return options.fn(context);
-});
+// Handlebars.registerHelper("with", function(context, options) {
+//   debugger
+//   return options.fn(context);
+// });
 
-const writeSeparated = (indexObj, mergedObj, fileType) => {
+const writeSeparated = (indexObj, folderPath, templateType) => {
   const keys = Object.keys(indexObj)
   keys.forEach(key => {
-    const item = indexObj[key]
-    const id = item['$id'].replace('.schema.json', '')
-    const { description, definitions, paths } = item
+    const item = indexObj[key]        
+    const schemaId = item['$id']
+    let schemaStr = schemaId    
+    if (schemaId && schemaId.indexOf('/') !== -1) {
+      const splitItems = schemaId.split('/')      
+      schemaStr = splitItems[splitItems.length -1]
+    } 
+    id = schemaStr.replace('.schema.json', '')           
+    // const { description, definitions, paths } = item
     try {
-      if (fileType === 'json') {      
-        // const data = fs.writeFileSync(fileName, JSON.stringify(mergedObj), 'utf-8')
-        // TODO:
-      } else if (fileType === 'md') {        
-        // TODO: 获取当前文件路径
-        // const mergedObjValue = JSON.stringify(mergedObj)
-        const fileName = `/Users/sunpeng/documents/seeking_odds/Doc-Protocol/v2/generated/${id}.md`
-        const modelTemplateStr = `{{#with definitions}}{{printModel index=mergedObj}}{{/with}}`
+      // 
+      const filePath = `${path.resolve(folderPath)}/generated`
+      try {
+        if (!fs.existsSync(filePath)) {
+          fs.mkdirSync(filePath)
+        } 
+      } catch (error) {
+        console.error(error)
+      }  
+      if (['markdown', 'Markdown', 'md', 'MD'].indexOf(templateType) !== -1) {
+        const fileName = path.join(filePath, `${id}.md`)           
+        const modelTemplateStr = `{{#with definitions}}{{printModel}}{{/with}}`
         const modelResult = generate(modelTemplateStr, item)
         const apiTemplateStr = `{{#with paths}}{{printAPI}}{{/with}}`
         const apiResult = generate(apiTemplateStr, item)
-        const modelData = fs.writeFileSync(fileName, modelResult, 'utf-8')
-        const apiData = fs.appendFileSync(fileName, apiResult, 'utf-8')            
-      }
+        fs.writeFileSync(fileName, modelResult, 'utf-8')
+        fs.appendFileSync(fileName, apiResult, 'utf-8')  
+      } else  if (['TypeScript', 'typescript', 'ts', 'TS']) {
+        // TODO:
+      }       
     } catch (error) {
       console.error(error)
     }

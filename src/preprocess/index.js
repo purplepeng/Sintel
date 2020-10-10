@@ -27,13 +27,13 @@ const indexObj = {}
  * }
  */
 const mergedObj = {}
-const read = (file) => {  
+const read = (file) => {    
   const obj = JSON.parse(file)
   const id = obj['$id']
   if (!indexObj[id]) {
     indexObj[id] = obj
     // debugger
-  }  
+  }    
   Object.keys(obj).forEach(key => {
     if (!mergedObj[key]) {
       mergedObj[key] = obj[key]
@@ -52,17 +52,20 @@ const read = (file) => {
 }
 
 const preprocess = (folderPath) => {
-  fs.readdirSync(folderPath).forEach(fileName => {
+  fs.readdirSync(folderPath).forEach(fileName => {    
     const fileDir = path.join(folderPath, fileName)
-    console.log(fileDir);
-    try {
-      const data = fs.readFileSync(fileDir, 'utf8')
-      if (data) {
-        read(data)    
-      } 
-    } catch (err) {
-      console.error(err)
-    }  
+    // 只解析json文件    
+    if (path.extname(fileDir) === '.json') {
+      console.log(fileDir);
+      try {
+        const data = fs.readFileSync(fileDir, 'utf8')
+        if (data) {
+          read(data)    
+        } 
+      } catch (err) {
+        console.error(err)
+      }  
+    }     
     // fs.stat(fileDir, (err, stats) => {
     //   console.log('stats', stats)
     // })
