@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Sintel</title>
+    <meta name="keywords" content="generate template iOS Android Vue React Mini Program model api mock" />
+  </head>
+  <body>
+    <h2>README</h2>
+    <h3>Resource</h3>
+    <ul>
+      <li>json file</li>
+      <li>template</li>
+      <li>platform</li>
+    </ul>
+    <h3>Compile</h3>
+    <h3>Generate</h3>
+    <h3>Server</h3>
+    <ul>
+      <li>mock</li>
+      <li>database</li>
+    </ul>
+    <h3>Test</h3>    
+    <script src="./node_modules/handlebars/dist/handlebars.min.js"></script>
+    <script id='entry-template' type="text/x-handlebars-template">
+      <p>
+        <!-- {{#with person}} -->
+        {{firstname}} {{lastname}}
+        <!-- {{#with}} -->
+      </p>
+    </script>
+    <script> 
+      const source = document.getElementById('entry-template').innerHTML
+      const template = Handlebars.compile(source)
+      const context = {
+        firstname: 'Sun',
+        lastname: 'Pengpeng'
+      }
+      var html = template(context)
+      debugger
+    </script>
+  </body>
+</html>
