@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 /**
- * 索引对象；存放索引文件名，及文件json数据
+ * indexObj: 索引对象；存放索引文件名，及文件json数据
  * 格式为：
  * {
  *    "board.schema.json": {
@@ -15,7 +15,7 @@ const path = require('path')
  */
 const indexObj = {}
 /**
- * 多个文件合并后的对象
+ * mergedObj: 多个文件合并后的对象
  * 格式为：
  * {
  *     "definitions": {
@@ -28,21 +28,26 @@ const indexObj = {}
  */
 const mergedObj = {}
 const read = (file) => {    
-  const obj = JSON.parse(file)
+  const obj = JSON.parse(file)  
   const id = obj['$id']
   if (!indexObj[id]) {
     indexObj[id] = obj
-    // debugger
-  }    
+  }  
   Object.keys(obj).forEach(key => {
     if (!mergedObj[key]) {
-      mergedObj[key] = obj[key]
+      if (typeof obj[key] === 'object') {
+        mergedObj[key] = obj[key] instanceof Array 
+          ? Object.assign([], obj[key]) 
+          : Object.assign({}, obj[key]) 
+      } else {
+        mergedObj[key] = obj[key]
+      }     
     } else {
       if (typeof obj[key] === 'object' && !(obj[key] instanceof Array)) {
         Object.keys(obj[key]).forEach(itemKey => {
-          mergedObj[key][itemKey] = obj[key][itemKey] // TODO:  key去重 
+          mergedObj[key][itemKey] = Object.assign({}, obj[key][itemKey]) // TODO:  key去重 
         })
-      } else {
+      } else {        
         mergedObj[key] = mergedObj[key].concat(obj[key]) // TODO:  数组去重           
       }
     }    
@@ -52,6 +57,7 @@ const read = (file) => {
 }
 
 const preprocess = (folderPath) => {
+  console.log('输入的文件')
   fs.readdirSync(folderPath).forEach(fileName => {    
     const fileDir = path.join(folderPath, fileName)
     // 只解析json文件    
@@ -65,10 +71,7 @@ const preprocess = (folderPath) => {
       } catch (err) {
         console.error(err)
       }  
-    }     
-    // fs.stat(fileDir, (err, stats) => {
-    //   console.log('stats', stats)
-    // })
+    }
   })
 }
 
