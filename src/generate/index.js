@@ -224,12 +224,26 @@ Handlebars.registerHelper('tsModel', function(context) {
               const subValueItem = subValue.items                          
               if (subValueItem['$ref']) {
                 subValueRefKey = subValueItem['$ref'].replace('#/definitions/', '')
+              } else if (subValueItem['oneOf']) {
+                const subValueRefItems = subValueItem['oneOf']                
+                if (subValueRefItems && subValueRefItems.length) {
+                  const subValueRefKeys = []                  
+                  subValueRefItems.forEach(subValueRefItem => {
+                    // 解析对象                    
+                    if (subValueRefItem['$ref']) {
+                      subValueRefKeys.push(subValueRefItem['$ref'].replace('#/definitions/', ''))
+                    }                    
+                  })                  
+                  subValueRefKey = subValueRefKeys.join('[] | ')                  
+                } else {
+                  subValueRefKey = 'any'                       
+                }
               } else {
-                subValueRefKey = subValueItem.type 
+                subValueRefKey = subValueItem.type                 
               }                          
             } else {
-              subValueRefKey = 'any' 
-            }            
+              subValueRefKey = 'any'               
+            }                        
             subValueType = `${subValueRefKey}[]` 
           } else {
             subValueType = subValue.type || ''
@@ -240,6 +254,50 @@ Handlebars.registerHelper('tsModel', function(context) {
       })
       result += '}\n\n'
     }
+  })
+  return new Handlebars.SafeString(result)
+})
+
+// api helper
+Handlebars.registerHelper('tsAPI', function() {
+  let result = `import request from '@/utils/request'\n`
+  const keys = Object.keys(this)
+  keys.forEach(key => {
+    const value = this[key]
+    const subKeys = Object.keys(value)
+    subKeys.forEach(subKey => {
+      const subValue = value[subKey]            
+      let params = null    
+      const reqParams = subValue.parameters      
+      if (reqParams && reqParams.length) {
+        // 首字母大写
+        const formatName = subValue.operationId.slice(0, 1).toLocaleUpperCase() + subValue.operationId.slice(1)
+        result += `\n\nexport interface ${formatName}Params {\n`
+        reqParams.forEach(param => {          
+          const { name, type, required, description } = param          
+          const optionStr = required ? '' : '?'
+          const desc = description ? `// ${description}` : ''
+          result += `  ${name}${optionStr}: ${type}; ${desc}\n`
+        }) 
+        result += '}\n'
+        params = `params: ${formatName}Params`
+      } else {
+        params = ''
+      }           
+      result += `\n// ${subValue.description}\n`
+      result += `export async function ${subValue.operationId}(${params}) {\n`
+      result += `  return request('${key}', {\n`
+      result += `    method: '${subKey.toLocaleUpperCase()}',\n`
+      if (reqParams && reqParams.length) {
+        if (subKey.toLocaleUpperCase() === 'GET') {
+          result += `    params\n`
+        } else {
+          result += `    data: params\n`
+        } 
+      }      
+      result += '  })\n'
+      result += '}\n'
+    })
   })
   return new Handlebars.SafeString(result)
 })
@@ -319,14 +377,20 @@ const writeSeparated = (indexObj, folderPath, templateType) => {
           console.error(error)
         }
         // TODO:
-        const fileName = path.join(filePath, `${id}.d.ts`)
+        const modelFileName = path.join(filePath, `${id}.d.ts`)
         const modelTemplateStr = `{{#with definitions}}{{tsModel}}{{/with}}`
-        const modelResult = generate(modelTemplateStr, item)
-        // const apiTemplateStr = `{{#with paths}}{{printAPI}}{{/with}}`
-        // const apiResult = generate(apiTemplateStr, item)
-        fs.writeFileSync(fileName, modelResult, 'utf-8')
-        // fs.appendFileSync(fileName, apiResult, 'utf-8') 
-        console.log(chalk.green(`${fileName}`))
+        const modelResult = generate(modelTemplateStr, item)        
+        fs.writeFileSync(modelFileName, modelResult, 'utf-8')
+        console.log(chalk.green(`${modelFileName}`))
+
+        const serviceFileName = path.join(filePath, `${id}.ts`)
+        const apiTemplateStr = `{{#with paths}}{{tsAPI}}{{/with}}`
+        const apiResult = generate(apiTemplateStr, item)
+        if (apiResult && apiResult.length) {
+          fs.writeFileSync(serviceFileName, apiResult, 'utf-8')
+          // fs.appendFileSync(fileName, apiResult, 'utf-8')  
+        }        
+        console.log(chalk.green(`${serviceFileName}`))
       }       
     } catch (error) {
       console.error(error)
