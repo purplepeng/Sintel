@@ -63,9 +63,11 @@ Handlebars.registerHelper('printModel', function() {
 Handlebars.registerHelper('printAPI', function() {
   let result = '## API\n'
   const keys = Object.keys(this)
+  debugger
   keys.forEach(key => {
     const value = this[key]
     const subKeys = Object.keys(value)
+    debugger
     subKeys.forEach(subKey => {
       const subValue = value[subKey]      
       result += '\n`' + subKey.toLocaleUpperCase() + '``' + key + '`' + subValue.description + '\n\n'
@@ -85,51 +87,60 @@ Handlebars.registerHelper('printAPI', function() {
       result += '| Params | Type |\n'
       result += '| --- | ---|\n'
       const resp = subValue.responses
-      const respData = resp['200'].schema
-      if (respData['$ref']) {
-        const refKey = respData['$ref'].replace('#/definitions/', '')
-        // TODO:
-        const subValueName = 'result'
-        result += '|`' + subValueName + '`|`' + refKey + '`|\n'  
-      } else {
-        if (respData.type === 'array' && respData.items) {
-          const subValueItem = respData.items            
-            let subValueRefKey = null
-            if (subValueItem['$ref']) {
-              subValueRefKey = subValueItem['$ref'].replace('#/definitions/', '')
-            } else {
-              subValueRefKey = subValueItem.type 
-            }            
-            subValueType = `${subValueRefKey}[]`
-            // TODO:
-            const subValueName = 'result'
-            result += '|`' + subValueName + '`|`' + subValueType + '`|\n'        
+      console.log('resp is ', resp);
+      debugger
+      
+      if (resp['200']) {
+        const respData = resp['200'].schema;
+        
+        if (respData['$ref']) {
+          const refKey = respData['$ref'].replace('#/definitions/', '')
+          // TODO:
+          const subValueName = 'result'
+          result += '|`' + subValueName + '`|`' + refKey + '`|\n'  
         } else {
-          const respSubKeys = respData.properties ? Object.keys(respData.properties) : []          
-          respSubKeys.forEach(respSubKey => {
-            const subValue = respData.properties[respSubKey]            
-            let subValueType = null            
-            if (subValue['$ref']) {
-              const refKey = subValue['$ref'].replace('#/definitions/', '')                            
-              subValueType = refKey              
-            } else {          
-              if (subValue.type === 'array' && subValue.items) {
-                const subValueItem = subValue.items            
-                let subValueRefKey = null
-                if (subValueItem['$ref']) {
-                  subValueRefKey = subValueItem['$ref'].replace('#/definitions/', '')
-                } else {
-                  subValueRefKey = subValueItem.type 
-                }            
-                subValueType = `${subValueRefKey}[]`
+          if (respData.type === 'array' && respData.items) {
+            const subValueItem = respData.items            
+              let subValueRefKey = null
+              if (subValueItem['$ref']) {
+                subValueRefKey = subValueItem['$ref'].replace('#/definitions/', '')
               } else {
-                subValueType = subValue.type || ''
-              }              
-            }
-            result += '|`' + respSubKey + '`|`' + subValueType + '`| \n'  
-          })
+                subValueRefKey = subValueItem.type 
+              }            
+              subValueType = `${subValueRefKey}[]`
+              // TODO:
+              const subValueName = 'result'
+              result += '|`' + subValueName + '`|`' + subValueType + '`|\n'        
+          } else {
+            const respSubKeys = respData.properties ? Object.keys(respData.properties) : []          
+            respSubKeys.forEach(respSubKey => {
+              const subValue = respData.properties[respSubKey]            
+              let subValueType = null            
+              if (subValue['$ref']) {
+                const refKey = subValue['$ref'].replace('#/definitions/', '')                            
+                subValueType = refKey              
+              } else {          
+                if (subValue.type === 'array' && subValue.items) {
+                  const subValueItem = subValue.items            
+                  let subValueRefKey = null
+                  if (subValueItem['$ref']) {
+                    subValueRefKey = subValueItem['$ref'].replace('#/definitions/', '')
+                  } else {
+                    subValueRefKey = subValueItem.type 
+                  }            
+                  subValueType = `${subValueRefKey}[]`
+                } else {
+                  subValueType = subValue.type || ''
+                }              
+              }
+              result += '|`' + respSubKey + '`|`' + subValueType + '`| \n'  
+            })
+          }
         }
+      } else {
+        // TODO:
       }
+      
       result += '___\n'
     })
   })
@@ -347,6 +358,7 @@ const writeSeparated = (indexObj, folderPath, templateType) => {
     const item = indexObj[key] 
     // TODO: item中添加索引对象indexObj，为了临时解决传参问题
     item.indexObj = indexObj    
+    debugger
     const id = formatSchemaId(item['$id'])
     // const { description, definitions, paths } = item
     try {              
