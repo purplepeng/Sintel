@@ -1,0 +1,31 @@
+{{!-- TODO: --}}
+import request from '@/utils/request'
+
+{{#each paths as |path pathId|}}
+  {{#each this}}
+    {{!-- 定义请求参数Params Interface；如果参数为空，则不定义  --}}
+    {{#if this.parameters}} 
+export interface {{>paramsInterface}} {
+      {{#each this.parameters}}
+   {{this.name}}: {{parseProperty this }}; {{#if this.description}}// {{this.description}}{{/if}}
+      {{/each}}
+}
+    {{/if}}
+
+// {{this.summary}}
+{{!-- 定义api 请求的的service函数 --}}
+export async function {{this.operationId}}({{#if this.parameters}}params: {{>paramsInterface}}{{/if}}) {
+  return request('{{pathId}}', {
+    method: '{{upperCase @key}}',
+    {{#if this.parameters}}
+      {{!-- 判断请求方式 --}}
+      {{#if (isGet @key)}}
+    params: params,
+      {{else}}
+    data: params,
+      {{/if}}
+    {{/if}}
+  })
+}
+  {{/each}}
+{{/each}}

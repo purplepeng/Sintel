@@ -28,5 +28,3 @@ preprocessor.preprocess(inputFolderPath)
 const outputFolderPath = program.outputType
 generator.write(preprocessor.mergedObj, outputFolderPath, templateType)
 generator.writeSeparated(preprocessor.indexObj, outputFolderPath, templateType)
-
-

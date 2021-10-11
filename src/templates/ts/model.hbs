@@ -1,0 +1,8 @@
+{{#each definitions}}
+export interface {{@key}} {
+  {{#each this.properties}}
+  {{@key}}: {{parseProperty this}}; {{#if this.description}}// {{this.description}}{{/if}}
+  {{/each}}
+}
+
+{{/each}}

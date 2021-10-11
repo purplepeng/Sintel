@@ -14,396 +14,166 @@ const formatSchemaId = (schemaId) => {
   return id
 }
 
-// model helper
-Handlebars.registerHelper('printModel', function() {  
-  let result = `## Models\n`
-  const keys = Object.keys(this)  
-  keys.forEach(key => {    
-    const value = this[key]        
-    result += `\n##### ${key}`
-    if (typeof value === 'object') {      
-      const desc = value.description
-      result += desc ? ` - ${desc}\n\n` : '\n\n'
-      const subKeys = Object.keys(value.properties)
-      result += '| Params | Type | Description |\n'
-      result += '| --- | --- | ---|\n'
-      subKeys.forEach(subKey => {
-        const subValue = value.properties[subKey]        
-        let subValueType = null
-        let subValueDesc = null
-        if (subValue['$ref']) {
-          const refKey = subValue['$ref'].replace('#/definitions/', '')
-          const refItem = this[refKey]                    
-          subValueType = refKey
-          // TODO:  引用的该文件外的model对象，目前没有显示出描述
-          subValueDesc = refItem ? refItem.description : '-'
-        } else {          
-          if (subValue.type === 'array' && subValue.items) {
-            const subValueItem = subValue.items            
-            let subValueRefKey = null
-            if (subValueItem['$ref']) {
-              subValueRefKey = subValueItem['$ref'].replace('#/definitions/', '')
-            } else {
-              subValueRefKey = subValueItem.type 
-            }            
-            subValueType = `${subValueRefKey}[]`
-          } else {
-            subValueType = subValue.type || ''
-          }
-          subValueDesc = subValue.description || '-'
-        }
-        result += '|`' + subKey + '`|`' + subValueType + '`|' + subValueDesc + '| \n'        
-      })
-    }
-  })
-  return new Handlebars.SafeString(result)
+// 读取模板文件
+const readTemplateFile = (subPath, fileName) => {
+  const src = path.join(process.cwd(), 'src')
+  const templates = path.join(src, 'templates')
+  const filePath = path.join(templates, subPath)
+  return fs.readFileSync(path.join(filePath, fileName), 'utf-8')
+}
+
+// helpers
+Handlebars.registerHelper('upperCase', function(aString) {
+  return aString.toUpperCase()
 })
 
-// api helper
-Handlebars.registerHelper('printAPI', function() {
-  let result = '## API\n'
-  const keys = Object.keys(this)
-  debugger
-  keys.forEach(key => {
-    const value = this[key]
-    const subKeys = Object.keys(value)
-    debugger
-    subKeys.forEach(subKey => {
-      const subValue = value[subKey]      
-      result += '\n`' + subKey.toLocaleUpperCase() + '``' + key + '`' + subValue.description + '\n\n'
-      result += '请求参数：\n'      
-      const reqParams = subValue.parameters      
-      if (reqParams && reqParams.length) {
-        result += '\n| Params | Type | Required | Description |\n'
-        result += '| --- | --- | --- | --- |\n'
-        reqParams.forEach(param => {          
-          const { name, type, required, description } = param
-          result += '|`' + name + '`|`' + type + '`|' + (required || '-') + '|' + (description || '-') + '| \n'        
-        }) 
-      } else {
-        result += '无\n'
-      }     
-      result += '\n返回参数：\n\n'
-      result += '| Params | Type |\n'
-      result += '| --- | ---|\n'
-      const resp = subValue.responses
-      console.log('resp is ', resp);
-      debugger
-      
-      if (resp['200']) {
-        const respData = resp['200'].schema;
-        
-        if (respData['$ref']) {
-          const refKey = respData['$ref'].replace('#/definitions/', '')
-          // TODO:
-          const subValueName = 'result'
-          result += '|`' + subValueName + '`|`' + refKey + '`|\n'  
-        } else {
-          if (respData.type === 'array' && respData.items) {
-            const subValueItem = respData.items            
-              let subValueRefKey = null
-              if (subValueItem['$ref']) {
-                subValueRefKey = subValueItem['$ref'].replace('#/definitions/', '')
-              } else {
-                subValueRefKey = subValueItem.type 
-              }            
-              subValueType = `${subValueRefKey}[]`
-              // TODO:
-              const subValueName = 'result'
-              result += '|`' + subValueName + '`|`' + subValueType + '`|\n'        
-          } else {
-            const respSubKeys = respData.properties ? Object.keys(respData.properties) : []          
-            respSubKeys.forEach(respSubKey => {
-              const subValue = respData.properties[respSubKey]            
-              let subValueType = null            
-              if (subValue['$ref']) {
-                const refKey = subValue['$ref'].replace('#/definitions/', '')                            
-                subValueType = refKey              
-              } else {          
-                if (subValue.type === 'array' && subValue.items) {
-                  const subValueItem = subValue.items            
-                  let subValueRefKey = null
-                  if (subValueItem['$ref']) {
-                    subValueRefKey = subValueItem['$ref'].replace('#/definitions/', '')
-                  } else {
-                    subValueRefKey = subValueItem.type 
-                  }            
-                  subValueType = `${subValueRefKey}[]`
-                } else {
-                  subValueType = subValue.type || ''
-                }              
-              }
-              result += '|`' + respSubKey + '`|`' + subValueType + '`| \n'  
-            })
-          }
-        }
-      } else {
-        // TODO:
-      }
-      
-      result += '___\n'
-    })
-  })
-  return new Handlebars.SafeString(result)
-})
-
-// TypeScript model helper
-Handlebars.registerHelper('tsModel', function(context) {    
-  let result = ''
-  const keys = Object.keys(this)  
-  // 构造import
+// data type adapter
+Handlebars.registerHelper('typeTransformer', function(params) {
+  // TypeScript Data Type
   /**
-   * 引用关系map
-   * key: schemaId，引用ID
-   * value: 被引用的模型对象
-   * {
-   *    'schemaId': ['product', 'order']   
-   * ]
+   * string
+   * number
+   * boolean
+   * array
+   * function
+   * null
+   * undefined
+   * symbol
+   * bigint ? // TODO:
    */
-  const refMap = {}
-  keys.forEach(key => {    
-    const value = this[key]           
-    if (typeof value === 'object') {              
-      const subKeys = Object.keys(value.properties)      
-      const indexObj = context.data && context.data.root ? context.data.root.indexObj : null      
-      // console.log(indexObj)      
-      subKeys.forEach(subKey => {
-        const subValue = value.properties[subKey]        
-        let subValueType = null
-        let subValueRef = null
-        let targetRef = null
-        if (subValue['$ref']) {
-          targetRef = subValue['$ref']
-        } else if (subValue.items && subValue.items['$ref']) {
-          targetRef = subValue.items['$ref']
-        }
-        if (targetRef) {
-          const refKey = targetRef.replace('#/definitions/', '')
-          const refItem = this[refKey]                    
-          subValueType = refKey          
-          if (!refItem && indexObj) {
-            const moduleKeys = Object.keys(indexObj)            
-            for (let index = 0; index < moduleKeys.length; index++) {
-              const element = moduleKeys[index];
-              const definitions = indexObj[element].definitions              
-              if (definitions && definitions[refKey]) {
-                subValueRef = formatSchemaId(indexObj[element]['$id'])                              
-                if (refMap[subValueRef]) {
-                  if (refMap[subValueRef].indexOf(subValueType) === -1) {
-                    refMap[subValueRef].push(subValueType) 
-                  }                  
-                } else {
-                  refMap[subValueRef] = [subValueType]
-                }                
-                break;
-              } 
-            }            
-          }
-        }         
-      })            
-    }
-  })
 
-  Object.keys(refMap).forEach(item => {
-    result += `import { ${refMap[item].join(', ')} } from './${item}.d'\n`
-  })
-  if (Object.keys(refMap).length) {
-    result += '\n'
-  }
+  /** Java Data Type
+   * 
+   */
 
-  keys.forEach(key => {    
-    const value = this[key]           
-    if (typeof value === 'object') {      
-      const desc = value.description
-      result += desc ? `// ${desc}\n` : ''
-      const subKeys = Object.keys(value.properties)
-      result += `export interface ${key} {\n`            
-      subKeys.forEach(subKey => {
-        const subValue = value.properties[subKey]        
-        let subValueType = null
-        let subValueDesc = null
-        if (subValue['$ref']) {
-          const refKey = subValue['$ref'].replace('#/definitions/', '')
-          const refItem = this[refKey]                    
-          subValueType = refKey
-          // TODO:  引用的该文件外的model对象，目前没有显示出描述
-          subValueDesc = refItem && refItem.description ? `// ${refItem.description}` : ''
-        } else {          
-          if (subValue.type === 'array') {
-            let subValueRefKey = null
-            if (subValue.items) {
-              const subValueItem = subValue.items                          
-              if (subValueItem['$ref']) {
-                subValueRefKey = subValueItem['$ref'].replace('#/definitions/', '')
-              } else if (subValueItem['oneOf']) {
-                const subValueRefItems = subValueItem['oneOf']                
-                if (subValueRefItems && subValueRefItems.length) {
-                  const subValueRefKeys = []                  
-                  subValueRefItems.forEach(subValueRefItem => {
-                    // 解析对象                    
-                    if (subValueRefItem['$ref']) {
-                      subValueRefKeys.push(subValueRefItem['$ref'].replace('#/definitions/', ''))
-                    }                    
-                  })                  
-                  subValueRefKey = subValueRefKeys.join('[] | ')                  
-                } else {
-                  subValueRefKey = 'any'                       
-                }
-              } else {
-                subValueRefKey = subValueItem.type                 
-              }                          
-            } else {
-              subValueRefKey = 'any'               
-            }                        
-            subValueType = `${subValueRefKey}[]` 
-          } else {
-            subValueType = subValue.type || ''
-          }
-          subValueDesc = subValue.description ? `// ${subValue.description}` : ''
-        }
-        result += `  ${subKey}: ${subValueType}; ${subValueDesc}\n`        
-      })
-      result += '}\n\n'
-    }
-  })
-  return new Handlebars.SafeString(result)
+  /** PHP Data Type
+   * 
+   */
 })
 
-// api helper
-Handlebars.registerHelper('tsAPI', function() {
-  let result = `import request from '@/utils/request'\n`
-  const keys = Object.keys(this)
-  keys.forEach(key => {
-    const value = this[key]
-    const subKeys = Object.keys(value)
-    subKeys.forEach(subKey => {
-      const subValue = value[subKey]            
-      let params = null    
-      const reqParams = subValue.parameters      
-      if (reqParams && reqParams.length) {
-        // 首字母大写
-        const formatName = subValue.operationId.slice(0, 1).toLocaleUpperCase() + subValue.operationId.slice(1)
-        result += `\n\nexport interface ${formatName}Params {\n`
-        reqParams.forEach(param => {          
-          const { name, type, required, description } = param          
-          const optionStr = required ? '' : '?'
-          const desc = description ? `// ${description}` : ''
-          result += `  ${name}${optionStr}: ${type}; ${desc}\n`
-        }) 
-        result += '}\n'
-        params = `params: ${formatName}Params`
-      } else {
-        params = ''
-      }           
-      result += `\n// ${subValue.description}\n`
-      result += `export async function ${subValue.operationId}(${params}) {\n`
-      result += `  return request('${key}', {\n`
-      result += `    method: '${subKey.toLocaleUpperCase()}',\n`
-      if (reqParams && reqParams.length) {
-        if (subKey.toLocaleUpperCase() === 'GET') {
-          result += `    params\n`
-        } else {
-          result += `    data: params\n`
-        } 
-      }      
-      result += '  })\n'
-      result += '}\n'
-    })
-  })
-  return new Handlebars.SafeString(result)
+// TODO: 
+const tsTypeMap = {
+  string: 'string',
+  integer: 'number',
+  number: 'number',
+  boolean: 'boolean',
+}
+
+// 解析对象的属性
+Handlebars.registerHelper('parseProperty', function(item) {
+  const { type, enum: enumValue, items } = item || {}
+  let value = tsTypeMap[type] || 'any'
+  if (type === 'array' && items) {
+    if (items.type) {
+      value = `${items.type}[]`
+    } else if (items['$ref']) {
+      const refKey = items['$ref'].replace('#/definitions/', '')
+      value = `${refKey}[]`
+    }
+  } 
+  // 枚举值
+  // else if (enumValue) {
+  //   const values =  enumValue.map(item => {
+  //     return typeof item === 'string' ? `'${item}'` : item
+  //   }).join(',')
+  //   value = `${tsTypeMap[type]} (enum values: ${values})`
+  // } 
+  else if (item['$ref']) {
+    const refKey = item['$ref'].replace('#/definitions/', '')
+    value = `${refKey}`
+  }
+  return new Handlebars.SafeString(value)
+})
+
+// 是否是GET请求
+Handlebars.registerHelper('isGet', function(method) {
+  const value = method && method.toUpperCase()
+  return value === 'GET'
+})
+
+// 格式化请求参数Interface名称
+Handlebars.registerHelper('formatParams', function(operationId) {
+  if (!operationId) {
+    return 'Params'
+  }
+  // 首字母大写
+  const formatName = operationId.slice(0, 1).toLocaleUpperCase() + operationId.slice(1)  
+  return `${formatName}Params`
+})
+
+// 请求参数Interface名称
+Handlebars.registerPartial({
+  'paramsInterface': '{{formatParams this.operationId}}'
 })
 
 const generate = (templateStr, input) => {
-  const template = Handlebars.compile(templateStr)    
+  const template = Handlebars.compile(templateStr)
   return template(input)
 }
 
-const write = (mergedObj, folderPath, templateType) => {  
+const write = (mergedObj, outputFolderPath, templateType) => {
   console.log('输出的文件')
-  try {        
-    if (['markdown', 'Markdown', 'md', 'MD'].indexOf(templateType) !== -1) {      
-      const modelTemplateStr = `{{#with definitions}}{{printModel}}{{/with}}`
-      const modelResult = generate(modelTemplateStr, mergedObj)
-      const apiTemplateStr = `{{#with paths}}{{printAPI}}{{/with}}`
-      const apiResult = generate(apiTemplateStr, mergedObj)
-      
-      const fileName = path.join(folderPath, 'index.md')   
-      fs.writeFileSync(fileName, modelResult, 'utf-8')
-      fs.appendFileSync(fileName, apiResult, 'utf-8') 
-      console.log(chalk.green(`${fileName}`))
+  try {
+    if (['markdown', 'Markdown', 'md', 'MD'].indexOf(templateType) !== -1) {
+      writeMarkdown(outputFolderPath, 'index.md', mergedObj)
     } else  if (['TypeScript', 'typescript', 'ts', 'TS']) {
-       // TODO:       
-       const modelTemplateStr = `{{#with definitions}}{{tsModel}}{{/with}}`
-       const modelResult = generate(modelTemplateStr, mergedObj)
-      //  const apiTemplateStr = `{{#with paths}}{{printAPI}}{{/with}}`
-      //  const apiResult = generate(apiTemplateStr, mergedObj)
-      
-       const fileName = path.join(folderPath, 'index.d.ts')   
-       fs.writeFileSync(fileName, modelResult, 'utf-8')
-      //  fs.appendFileSync(fileName, apiResult, 'utf-8') 
-      console.log(chalk.green(`${fileName}`))
-    }       
+      writeTSModel(outputFolderPath, `index.d.ts`, mergedObj)
+      writeTSApi(outputFolderPath, `index.ts`, mergedObj)
+    }
   } catch (error) {
     console.error(error)
   }
 }
 
-// Handlebars.registerHelper("with", function(context, options) {
-//   return options.fn(context);
-// });
+// 生成markdown文件
+const writeMarkdown = (filePath, name, data) => {
+  const template = readTemplateFile('doc', 'md.hbs')
+  writeGeneratedFile(filePath, name, template, data)
+}
 
-const writeSeparated = (indexObj, folderPath, templateType) => {
+// 生成ts model(d.ts)文件
+const writeTSModel = (filePath, name, data) => {
+  const template = readTemplateFile('ts', 'model.hbs')
+  writeGeneratedFile(filePath, name, template, data)
+}
+
+// 生成ts api(services)文件
+const writeTSApi = (filePath, name, data) => {
+  const template = readTemplateFile('ts', 'api.hbs')
+  writeGeneratedFile(filePath, name, template, data)
+}
+
+const writeGeneratedFile = (filePath, name, template, data) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      fs.mkdirSync(filePath, { recursive: true })
+    } 
+  } catch (error) {
+    console.error(error)
+  }
+  const fileName = path.join(filePath, name)
+  // console.log('data is ', data);
+  const result = generate(template, data)
+  fs.writeFileSync(fileName, result, 'utf-8')
+  console.log(chalk.green(`${fileName}`))
+}
+
+const writeSeparated = (indexObj, outputFolderPath, templateType) => {
   const keys = Object.keys(indexObj)
   keys.forEach(key => {
     const item = indexObj[key] 
     // TODO: item中添加索引对象indexObj，为了临时解决传参问题
-    item.indexObj = indexObj    
-    debugger
+    item.indexObj = indexObj
     const id = formatSchemaId(item['$id'])
-    // const { description, definitions, paths } = item
-    try {              
+    try {
       if (['markdown', 'Markdown', 'md', 'MD'].indexOf(templateType) !== -1) {
-        const filePath = `${path.resolve(folderPath)}/doc`
-        try {
-          if (!fs.existsSync(filePath)) {
-            fs.mkdirSync(filePath)
-          } 
-        } catch (error) {
-          console.error(error)
-        }
-        const fileName = path.join(filePath, `${id}.md`)           
-        const modelTemplateStr = `{{#with definitions}}{{printModel}}{{/with}}`
-        const modelResult = generate(modelTemplateStr, item)
-        const apiTemplateStr = `{{#with paths}}{{printAPI}}{{/with}}`
-        const apiResult = generate(apiTemplateStr, item)
-        fs.writeFileSync(fileName, modelResult, 'utf-8')
-        fs.appendFileSync(fileName, apiResult, 'utf-8')  
-        console.log(chalk.green(`${fileName}`))
+        const filePath = `${path.resolve(outputFolderPath)}/doc`
+        writeMarkdown(filePath, `${id}.md`, item)
       } else  if (['TypeScript', 'typescript', 'ts', 'TS']) {
-        const filePath = `${path.resolve(folderPath)}/generated`
-        try {
-          if (!fs.existsSync(filePath)) {
-            fs.mkdirSync(filePath)
-          } 
-        } catch (error) {
-          console.error(error)
-        }
-        // TODO:
-        const modelFileName = path.join(filePath, `${id}.d.ts`)
-        const modelTemplateStr = `{{#with definitions}}{{tsModel}}{{/with}}`
-        const modelResult = generate(modelTemplateStr, item)        
-        fs.writeFileSync(modelFileName, modelResult, 'utf-8')
-        console.log(chalk.green(`${modelFileName}`))
-
-        const serviceFileName = path.join(filePath, `${id}.ts`)
-        const apiTemplateStr = `{{#with paths}}{{tsAPI}}{{/with}}`
-        const apiResult = generate(apiTemplateStr, item)
-        if (apiResult && apiResult.length) {
-          fs.writeFileSync(serviceFileName, apiResult, 'utf-8')
-          // fs.appendFileSync(fileName, apiResult, 'utf-8')  
-        }        
-        console.log(chalk.green(`${serviceFileName}`))
-      }       
+        const filePath = `${path.resolve(outputFolderPath)}/generated`
+        writeTSModel(filePath, `${id}.d.ts`, item)
+        writeTSApi(filePath, `${id}.ts`, item)
+      }
     } catch (error) {
       console.error(error)
     }

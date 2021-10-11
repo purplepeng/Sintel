@@ -1,0 +1,42 @@
+## Models
+{{#each definitions}}
+##### {{@key}}
+
+| Params | Type | Description |
+| --- | --- | ---|
+  {{#each this.properties}}
+| `{{@key}}` | `{{parseProperty this}}` | {{this.description}} |
+  {{/each}}
+
+{{/each}}
+
+## API
+{{#each paths as |path pathId|}}
+
+  {{#each this}}
+`{{upperCase @key}} {{pathId}}` 
+
+{{this.summary}}
+
+请求参数：
+
+| Params | Type | Required | Description |
+| --- | --- | --- | --- |
+      {{#each this.parameters}}
+| `{{this.name}}` | `{{ this.type }}` | `{{this.required}}` | {{this.description}} |
+      {{/each}}
+
+返回参数：
+
+| Params | Type |
+| --- | ---|
+      {{#each this.responses as |response responseId|}}
+        {{#if responseId}}
+          {{responseId}}{{this.schema}}
+        {{/if}}
+      {{/each}}
+___
+
+  {{/each}}
+
+{{/each}}
