@@ -1,5 +1,6 @@
 import request from '@/utils/request'
 
+
 export interface AddPetParams {
    body: any; // Pet object that needs to be added to the store
 }
@@ -11,6 +12,7 @@ export async function addPet(params: AddPetParams) {
     data: params,
   })
 }
+
 export interface UpdatePetParams {
    body: any; // Pet object that needs to be added to the store
 }
@@ -22,6 +24,7 @@ export async function updatePet(params: UpdatePetParams) {
     data: params,
   })
 }
+
 export interface FindPetsByStatusParams {
    status: string[]; // Status values that need to be considered for filter
 }
@@ -33,6 +36,7 @@ export async function findPetsByStatus(params: FindPetsByStatusParams) {
     params: params,
   })
 }
+
 export interface FindPetsByTagsParams {
    tags: string[]; // Tags to filter by
 }
@@ -44,6 +48,7 @@ export async function findPetsByTags(params: FindPetsByTagsParams) {
     params: params,
   })
 }
+
 export interface GetPetByIdParams {
    petId: number; // ID of pet to return
 }
@@ -55,6 +60,7 @@ export async function getPetById(params: GetPetByIdParams) {
     params: params,
   })
 }
+
 export interface UpdatePetWithFormParams {
    petId: number; // ID of pet that needs to be updated
    name: string; // Updated name of the pet
@@ -68,6 +74,7 @@ export async function updatePetWithForm(params: UpdatePetWithFormParams) {
     data: params,
   })
 }
+
 export interface DeletePetParams {
    api_key: string; 
    petId: number; // Pet id to delete
@@ -80,6 +87,7 @@ export async function deletePet(params: DeletePetParams) {
     data: params,
   })
 }
+
 export interface UploadFileParams {
    petId: number; // ID of pet to update
    additionalMetadata: string; // Additional data to pass to server
@@ -100,6 +108,7 @@ export async function getInventory() {
     method: 'GET',
   })
 }
+
 export interface PlaceOrderParams {
    body: any; // order placed for purchasing the pet
 }
@@ -111,6 +120,7 @@ export async function placeOrder(params: PlaceOrderParams) {
     data: params,
   })
 }
+
 export interface GetOrderByIdParams {
    orderId: number; // ID of pet that needs to be fetched
 }
@@ -122,6 +132,7 @@ export async function getOrderById(params: GetOrderByIdParams) {
     params: params,
   })
 }
+
 export interface DeleteOrderParams {
    orderId: number; // ID of the order that needs to be deleted
 }
@@ -133,6 +144,7 @@ export async function deleteOrder(params: DeleteOrderParams) {
     data: params,
   })
 }
+
 export interface CreateUserParams {
    body: any; // Created user object
 }
@@ -144,6 +156,7 @@ export async function createUser(params: CreateUserParams) {
     data: params,
   })
 }
+
 export interface CreateUsersWithArrayInputParams {
    body: any; // List of user object
 }
@@ -155,6 +168,7 @@ export async function createUsersWithArrayInput(params: CreateUsersWithArrayInpu
     data: params,
   })
 }
+
 export interface CreateUsersWithListInputParams {
    body: any; // List of user object
 }
@@ -166,6 +180,7 @@ export async function createUsersWithListInput(params: CreateUsersWithListInputP
     data: params,
   })
 }
+
 export interface LoginUserParams {
    username: string; // The user name for login
    password: string; // The password for login in clear text
@@ -185,6 +200,7 @@ export async function logoutUser() {
     method: 'GET',
   })
 }
+
 export interface GetUserByNameParams {
    username: string; // The name that needs to be fetched. Use user1 for testing. 
 }
@@ -196,6 +212,7 @@ export async function getUserByName(params: GetUserByNameParams) {
     params: params,
   })
 }
+
 export interface UpdateUserParams {
    username: string; // name that need to be updated
    body: any; // Updated user object
@@ -208,6 +225,7 @@ export async function updateUser(params: UpdateUserParams) {
     data: params,
   })
 }
+
 export interface DeleteUserParams {
    username: string; // The name that needs to be deleted
 }

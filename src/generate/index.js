@@ -170,7 +170,7 @@ const writeSeparated = (indexObj, outputFolderPath, templateType) => {
         const filePath = `${path.resolve(outputFolderPath)}/doc`
         writeMarkdown(filePath, `${id}.md`, item)
       } else  if (['TypeScript', 'typescript', 'ts', 'TS']) {
-        const filePath = `${path.resolve(outputFolderPath)}/generated`
+        const filePath = `${path.resolve(outputFolderPath)}/ts`
         writeTSModel(filePath, `${id}.d.ts`, item)
         writeTSApi(filePath, `${id}.ts`, item)
       }

@@ -4,6 +4,9 @@ const { program } = require('commander')
 const preprocessor = require('./src/preprocess/index')
 const generator = require('./src/generate/index')
 
+function commaSeparatedList(value, dummyPrevious) {
+  return value.split(',');
+}
 program
   .version('0.0.1')
   .option('-t --template-type <type>', '模板类型（markdown、TypeScript等）', 'markdown') // 默认模板类型为markdown
